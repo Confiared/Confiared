@@ -82,6 +82,8 @@ function step1() {
             
             if(!url.startsWith("http://") && !url.startsWith("https://"))
                 url="http://"+url;
+            
+            document.getElementById("step2").innerHTML = "<h1>Analyse in progress...</h1><h3>"+url+"</h3><div id=\"cooking\"><div class=\"bubble\"></div><div class=\"bubble\"></div><div class=\"bubble\"></div><div class=\"bubble\"></div><div class=\"bubble\"></div><div id=\"area\"><div id=\"sides\"><div id=\"pan\"></div><div id=\"handle\"></div></div><div id=\"pancake\"><div id=\"pastry\"></div></div></div></div>";
                 
             var xhttp = new XMLHttpRequest();
             xhttp.onreadystatechange = function() {
