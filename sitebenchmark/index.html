@@ -1,0 +1,299 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7" />
+<meta name="Description" content="" />
+<meta name="Keywords" content="hosting,bolivia,benchmark,site,speed" />
+<meta name='author' content='BRULE herman, alpha_one_x86' />
+<meta name='copyright' content='BRULE herman, alpha_one_x86' />
+<meta name="Language" content="en" />
+<meta http-equiv="content-language" content="english" />
+<meta name="robots" content="index,follow,archive" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="stylesheet" href="/css/style.css" type="text/css" />
+<link rel="stylesheet" href="/css/stylehar.css" type="text/css">
+<title>Benchmark your site</title>
+</head><body>
+<div id="header2"><center><table><tr>
+<td><img src="/images/isologo-header.png" style="margin:25px 0 0 10px;" width="62px" height="62px" /></td>
+<td><img src="/images/confiared-header.png" style="margin:25px 0 0 30px;" width="330px" height="56px" /></td>
+<td><div style="margin:0 0 0 220px;font-weight:bold;"><br />
+<br />
+<br />
+<a href="http://www.confiared.com/">Home</a></div></td>
+</tr></table></center></div>
+<div id="headervps">Confiared Site Benchmark</div>
+<div id="testyoursiteheader">
+<center>
+
+<div id="step1">
+    <h2>Enter the site to analyse</h2>
+    <table id="tableurl"><tr><td><input type="text" placeholder="www.site.com" id="url">&nbsp;</td><td>&nbsp;&nbsp;&nbsp;<input type="submit" value="Benchmark" onclick="step1()"></td></tr></table>
+</div>
+
+<div id="step2">
+    <h1>Analyse in progress..</h1>
+    <div id="cooking">
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div id="area">
+        <div id="sides">
+        <div id="pan"></div>
+        <div id="handle"></div>
+        </div>
+        <div id="pancake">
+        <div id="pastry"></div>
+        </div>
+    </div>
+    </div>
+</div>
+
+</center>
+</div>
+
+<center>
+<div id="step3">
+    <h2>Bug, contact the admin</h2>
+</div>
+</center>
+
+<script>
+function step1() {
+    String.prototype.trunc = String.prototype.trunc ||
+      function(n){
+          return (this.length > n) ? this.substr(0, n-1) + '&hellip;' : this;
+      };
+    if(document.getElementById("step1").style.display != "none")
+    {
+        var url=document.getElementById('url').value;
+        if(url=="")
+        {
+            alert("Your url can't be empty");
+            return;
+        }
+        else
+        {
+            document.getElementById("step1").style.display = "none";
+            document.getElementById("step2").style.display = "block";
+            document.getElementById("step3").style.display = "none";
+            
+            if(!url.startsWith("http://") && !url.startsWith("https://"))
+                url="http://"+url;
+                
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4)
+                {
+                    document.getElementById("step1").style.display = "block";
+                    document.getElementById("step2").style.display = "none";
+                    document.getElementById("step3").style.display = "block";
+                    if(this.status == 200)
+                    {
+                        //this.responseText
+                        var datas = JSON.parse(this.responseText);
+                        var pagespeedline=datas['pagespeed'].split("\n");
+                        var thisRegex = new RegExp('\(score=[0-9]+\)');
+                        var scoretot=0,scorecount=0;
+                        
+                        for (var i = 0; i < pagespeedline.length; i++)
+                        {
+                            var line=pagespeedline[i];
+                            if(thisRegex.test(line))
+                            {
+                                scoretot+=parseInt(line.replace(/.*\(score=([0-9]+)\).*/g,"$1"));
+                                scorecount++;
+                            }
+                        }
+                        
+                        var requests=0;
+                        var pagesizetemp=0;
+                        var harcontent=atob(datas['har']);
+                        var har = JSON.parse(harcontent);
+                        var startTime = new Date(har.log.pages[0].startedDateTime);
+
+                        var firsttime=-1;
+                        har.log.entries.forEach(function(entry) {
+                            pagesizetemp+=entry.response.bodySize;
+                            if(firsttime==-1)
+                                firsttime=parseInt(entry.timings.wait);
+                            requests++;
+                        });
+                        
+                        var score=Math.round(scoretot/scorecount);
+                        var pagesize=0;
+                        if(pagesizetemp/1000>1000)
+                            pagesize=Math.round(pagesizetemp/1000000).toString()+" MB";
+                        else
+                            pagesize=Math.round(pagesizetemp/1000).toString()+" KB";
+                        var timetoload=Math.round(parseInt(datas['timetoload'])/1000*10)/10;
+                        var newhtml="";
+                        newhtml+="<table>";
+                        newhtml+="<tr><td><h2>Summary</h2></td></tr>";
+                        newhtml+="<tr><td>";
+                            newhtml+="<table>";
+                            newhtml+="<tr>";
+                                newhtml+="<td rowspan=\"2\">";
+                                    newhtml+="<div class=\"blockperf screenshot\"><img src=\"data:image/png;base64,"+datas['thumbnail']+"\" alt=\"\"></div>";
+                                newhtml+="</td>";
+                                newhtml+="<td>";
+                                    newhtml+="<div class=\"blockperf infoblock\"><div class=\"title\">Performance grade</div><div class=\"value\">";
+                                    if(scorecount>0)
+                                    {
+                                        if(score>=90)
+                                            newhtml+="<span class=\"lettergood\">A</span>";
+                                        else if(score>=75)
+                                            newhtml+="<span class=\"letteraverage\">B</span>";
+                                        else
+                                            newhtml+="<span class=\"letterbad\">C</span>";
+                                    }
+                                    newhtml+=" "+score.toString()+"</div></div>";
+                                newhtml+="</td>";
+                                newhtml+="<td>";
+                                    newhtml+="<div class=\"blockperf infoblock\"><div class=\"title\">Load time</div><div class=\"value\">"+timetoload+" s</div></div>";
+                                newhtml+="</td>";
+                                newhtml+="<td>";
+                                    newhtml+="<div class=\"blockperf infoblock\"><div class=\"title\">IPv6</div><div class=\"value\">";
+                                    if(datas['haveipv6'])
+                                        newhtml+="<span class=\"lettergood\">Yes</span>";
+                                    else
+                                        newhtml+="<span class=\"letterbad\">No</span>";
+                                    newhtml+="</div></div>";
+                                newhtml+="</td>";
+                            newhtml+="</tr>";
+                            newhtml+="<tr>";
+                                newhtml+="<td>";
+                                    newhtml+="<div class=\"blockperf infoblock\"><div class=\"title\">Page size</div><div class=\"value\">"+pagesize+"</div></div>";
+                                newhtml+="</td>";
+                                newhtml+="<td>";
+                                    newhtml+="<div class=\"blockperf infoblock\"><div class=\"title\">Requests</div><div class=\"value\">"+requests.toString()+"</div></div>";
+                                newhtml+="</td>";
+                                newhtml+="<td>";
+                                    newhtml+="<div class=\"blockperf infoblock\"><div class=\"title\">First byte</div><div class=\"value\">";
+                                    if(firsttime<70)
+                                        newhtml+="<span class=\"lettergood\">A</span>";
+                                    else if(firsttime<140)
+                                        newhtml+="<span class=\"letteraverage\">B</span>";
+                                    else
+                                        newhtml+="<span class=\"letterbad\">C</span>";
+                                    newhtml+=" "+firsttime.toString()+" ms</div></div>";
+                                newhtml+="</td>";
+                            newhtml+="</tr>";
+                        newhtml+="</td></tr>";
+                        var perfprobdisplayed=false;
+                            for (var i = 0; i < pagespeedline.length; i++)
+                            {
+                                var line=pagespeedline[i];
+                                if(thisRegex.test(line))
+                                {
+                                    var linescore=parseInt(line.replace(/.*\(score=([0-9]+)\).*/g,"$1"));
+                                    if(i<5 || linescore<100)
+                                    {
+                                        if(!perfprobdisplayed)
+                                        {
+                                            newhtml+="<tr><td><h2>Performance problem</h2></td></tr>";
+                                            perfprobdisplayed=true;
+                                        }
+                                        newhtml+="<tr><td colspan=\"4\"><button class=\"accordion\"><div style=\"float:left;width:75px;font-weight:bold;\">";
+                                        if(linescore>=90)
+                                            newhtml+="<span class=\"lettergood\">A</span>";
+                                        else if(linescore>=75)
+                                            newhtml+="<span class=\"letteraverage\">B</span>";
+                                        else
+                                            newhtml+="<span class=\"letterbad\">C</span>";
+                                        newhtml+=" "+linescore.toString()+"</div>";
+                                        newhtml+=line.replace(/.*_([^_]+)_.*/g,"$1")+"</button><div class=\"panel\">";
+                                        var havestartul=false;
+                                        for (var j = i+1; j < pagespeedline.length; j++)
+                                        {
+                                            var linesub=pagespeedline[j];
+                                            if(thisRegex.test(linesub))
+                                                break;
+                                            if(linesub.startsWith("    * "))
+                                            {
+                                                if(havestartul==false)
+                                                {
+                                                    newhtml+="<ul>";
+                                                    havestartul=true;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if(havestartul==true)
+                                                {
+                                                    newhtml+="</ul>";
+                                                    havestartul=false;
+                                                }
+                                            }
+                                            if(linesub.startsWith("http://") || linesub.startsWith("https://") || linesub.startsWith("    * http://") || linesub.startsWith("    * https://"))
+                                            {
+                                                var startli=linesub.startsWith("    * ");
+                                                linesub = linesub.replace("    * ", "");
+                                                if(startli)
+                                                    newhtml+="<li>";
+                                                newhtml+="<a href=\""+linesub+"\">"+linesub.trunc(50)+"</a><br />";
+                                                if(startli)
+                                                    newhtml+="</li>";
+                                            }
+                                            else
+                                                newhtml+=linesub+"<br />";
+                                        }
+                                        newhtml+="</div></td></tr>";
+                                    }
+                                }
+                            }
+                        newhtml+="</table><br />";
+                        newhtml+="<div id=\"HarViewer\"></div>";
+                        document.getElementById("step3").innerHTML = newhtml;
+                        
+                        var acc = document.getElementsByClassName("accordion");var i;
+
+                        for (i = 0; i < acc.length; i++) {
+
+                            acc[i].onclick = function(){
+
+                                this.classList.toggle("active");
+
+                                var panel = this.nextElementSibling;
+
+                                if (panel.style.display === "block") {
+
+                                    panel.style.display = "none";
+
+                                } else {
+
+                                    panel.style.display = "block";
+
+                                }
+
+                            }
+
+                        }
+                        harviewer = new HarViewer('HarViewer');
+                        harviewer.loadHar(har);
+
+                    }
+                    else
+                        document.getElementById("step3").innerHTML = "<br /><br /><h3>Bug, contact the admin</h3><br /><br />";
+                }
+            };
+            xhttp.open("POST", "benchmark.php", true);
+            xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            xhttp.send("url="+url);
+        }
+    }
+}
+</script>
+
+
+<script src="/script/jquery-2.2.3.min.js"></script>
+<script src="/script/HarViewer.min.js"></script>
+
+<div id="foot">
+    &copy; <script>document.write("2016-"+new Date().getFullYear())</script> - Confiared - All rights reserved<br />
+    Related page: <a href="https://github.com/Confiared/Confiared">GPL3 code part</a>
+</div>
+
+</body></html> 
