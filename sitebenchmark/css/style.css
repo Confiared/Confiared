@@ -17,6 +17,8 @@ a{color:#83afd7;}a:hover{color:#FF6600;}
 #step2 {display:none}
 #step3 {display:none;background-color:#eee;margin:0}
 #step3 h2 {margin:0;padding:0}
+#step4 {display:none;background-color:#eee;margin:0}
+#step4 h2 {margin:0;padding:0}
 .blockperf {border:1px solid #ddd;background-color:#fff;margin:5px;padding:10px;}
 #testyoursiteheader input[type=text]{box-sizing:border-box;box-shadow:0 1px 1px 0 rgba(0,0,0,0.2);border-radius:2px;border: 0;font-size:1.5em;padding:10px 15px;width:400px}
 #testyoursiteheader input[type=submit]{box-sizing:border-box;box-shadow:0 1px 1px 0 rgba(0,0,0,0.2);border-radius:2px;border: 0;font-size:1.5em;padding:10px 15px;background-color:#816eea;color:#fff;outline: none;transition: background .4s ease-in;font-weight: bold;cursor: pointer;}

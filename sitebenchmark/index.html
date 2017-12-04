@@ -28,7 +28,7 @@
 
 <div id="step1">
     <h2>Enter the site to analyse</h2>
-    <table id="tableurl"><tr><td><input type="text" placeholder="www.site.com" id="url">&nbsp;</td><td>&nbsp;&nbsp;&nbsp;<input type="submit" value="Benchmark" onclick="step1()"></td></tr></table>
+    <table id="tableurl"><tr><td><input type="text" placeholder="www.site.com" id="url">&nbsp;</td><td>&nbsp;&nbsp;&nbsp;<input type="submit" value="Benchmark" onclick="step1()">&nbsp;&nbsp;&nbsp;<input type="submit" id="Compare" value="Compare with the optimizer" onclick="compare()" style="display:none;float:right"/></td></tr></table>
 </div>
 
 <div id="step2">
@@ -55,12 +55,19 @@
 </div>
 
 <center>
+<table><tr><td id="trd">
+<div id="step4">
+</div>
+</td><td id="tro">
 <div id="step3">
     <h2>Bug, contact the admin</h2>
 </div>
+</td></tr></table>
 </center>
 
 <script>
+var lasturlrun;
+var comparemode=false;
 function step1() {
     String.prototype.trunc = String.prototype.trunc ||
       function(n){
@@ -70,18 +77,19 @@ function step1() {
     {
         var url=document.getElementById('url').value;
         if(url=="")
-        {
-            alert("Your url can't be empty");
             return;
-        }
         else
         {
             document.getElementById("step1").style.display = "none";
             document.getElementById("step2").style.display = "block";
             document.getElementById("step3").style.display = "none";
+            document.getElementById("step4").style.display = "none";
             
             if(!url.startsWith("http://") && !url.startsWith("https://"))
                 url="http://"+url;
+                
+            if(!comparemode)
+                document.getElementById("trd").innerHTML = "<div id=\"step4\"></div>";
             
             document.getElementById("step2").innerHTML = "<h1>Analyse in progress...</h1><h3>"+url+"</h3><div id=\"cooking\"><div class=\"bubble\"></div><div class=\"bubble\"></div><div class=\"bubble\"></div><div class=\"bubble\"></div><div class=\"bubble\"></div><div id=\"area\"><div id=\"sides\"><div id=\"pan\"></div><div id=\"handle\"></div></div><div id=\"pancake\"><div id=\"pastry\"></div></div></div></div>";
                 
@@ -92,8 +100,10 @@ function step1() {
                     document.getElementById("step1").style.display = "block";
                     document.getElementById("step2").style.display = "none";
                     document.getElementById("step3").style.display = "block";
+                    document.getElementById("step4").style.display = "block";
                     if(this.status == 200)
                     {
+                        lasturlrun=url;
                         //this.responseText
                         var datas = JSON.parse(this.responseText);
                         var pagespeedline=datas['pagespeed'].split("\n");
@@ -133,7 +143,7 @@ function step1() {
                         var timetoload=Math.round(parseInt(datas['timetoload'])/1000*10)/10;
                         var newhtml="";
                         newhtml+="<table>";
-                        newhtml+="<tr><td><h2>Summary</h2></td></tr>";
+                        newhtml+="<tr><td><h2>Summary for "+url+"</h2></td></tr>";
                         newhtml+="<tr><td>";
                             newhtml+="<table>";
                             newhtml+="<tr>";
@@ -247,35 +257,36 @@ function step1() {
                                 }
                             }
                         newhtml+="</table><br />";
-                        newhtml+="<div id=\"HarViewer\"></div>";
+                        if(!comparemode)
+                            newhtml+="<div id=\"HarViewer\"></div>";
+                        else
+                            comparemode=false;
                         document.getElementById("step3").innerHTML = newhtml;
                         
                         var acc = document.getElementsByClassName("accordion");var i;
-
                         for (i = 0; i < acc.length; i++) {
-
                             acc[i].onclick = function(){
-
                                 this.classList.toggle("active");
-
                                 var panel = this.nextElementSibling;
-
                                 if (panel.style.display === "block") {
-
                                     panel.style.display = "none";
-
                                 } else {
-
                                     panel.style.display = "block";
-
                                 }
 
                             }
 
                         }
-                        harviewer = new HarViewer('HarViewer');
-                        harviewer.loadHar(har);
+                        if(!comparemode)
+                        {
+                            harviewer = new HarViewer('HarViewer');
+                            harviewer.loadHar(har);
+                        }
 
+                        if(!url.includes(".optimize.confiared.com"))
+                            document.getElementById("Compare").style.display = "block";
+                        else
+                            document.getElementById("Compare").style.display = "none";
                     }
                     else
                         document.getElementById("step3").innerHTML = "<br /><br /><h3>Bug, contact the admin</h3><br /><br />";
@@ -285,6 +296,34 @@ function step1() {
             xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
             xhttp.send("url="+url);
         }
+    }
+}
+function compare() {
+    if(lasturlrun!="")
+    {
+        var element = document.getElementById("HarViewer");
+        element.outerHTML = "";
+        delete element;
+        
+        document.getElementById("trd").innerHTML = document.getElementById("tro").innerHTML.replace("div id=\"step3\"", "div id=\"step4\"");
+        
+        var count1 = (lasturlrun.match(/\//g) || []).length;
+        if(count1<3)
+            lasturlrun=lasturlrun+".optimize.confiared.com";
+        else
+        {
+            var strpos=lasturlrun.indexOf("/",8);
+            if(strpos==-1)
+                lasturlrun=lasturlrun+".optimize.confiared.com";
+            else
+                lasturlrun=lasturlrun.slice(0, strpos) + ".optimize.confiared.com" + lasturlrun.slice(strpos);
+        }
+        
+        document.getElementById("Compare").style.display = "none";
+        //document.getElementById("HarViewer").style.display = "none";
+        document.getElementById('url').value=lasturlrun;
+        comparemode=true;
+        step1();
     }
 }
 </script>
