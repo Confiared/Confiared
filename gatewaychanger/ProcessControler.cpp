@@ -1,8 +1,11 @@
 #include "ProcessControler.h"
 
 #include <iostream>
+#include <QCoreApplication>
 
-ProcessControler::ProcessControler(QObject *parent) : QObject(parent)
+ProcessControler::ProcessControler(QObject *parent) :
+    QObject(parent),
+    settings(QCoreApplication::applicationDirPath()+"/setting.conf",QSettings::NativeFormat)
 {
     if(!settings.contains("gateway_ips_macs_in_preference_order"))
         settings.setValue("gateway_ips_macs_in_preference_order","1.2.3.4-00:00:00:00:00:00,9.8.7.6-00:00:00:00:00:00");
@@ -35,7 +38,10 @@ ProcessControler::ProcessControler(QObject *parent) : QObject(parent)
         settings.setValue("script_on_gateway_change","/tmp/script.sh");
     script_on_gateway_change=settings.value("script_on_gateway_change").toString();
 
+    settings.sync();
+
     callScriptAgain=false;
+    lastEnabledGatewayIndex=0;
 
     int index=0;
     while(index<ips.size())
@@ -53,7 +59,7 @@ ProcessControler::ProcessControler(QObject *parent) : QObject(parent)
         gateway.process=new QProcess();
         gateway.ip=ip;
         gateway.lastStatus=true;
-        gateway.sendtext=true;
+        gateway.sendtext=false;
         gateway.process->start("/usr/bin/nping", QStringList() << "8.8.8.8" << "--dest-mac" << mac << "-c" << "0");
         connect(gateway.process,&QProcess::readyReadStandardError,this,&ProcessControler::readyReadStandardError);
         connect(gateway.process,&QProcess::readyReadStandardOutput,this,&ProcessControler::readyReadStandardOutput);
@@ -61,6 +67,8 @@ ProcessControler::ProcessControler(QObject *parent) : QObject(parent)
         processList.append(gateway.process);
         index++;
     }
+
+    connect(&scriptProcess,static_cast<void(QProcess::*)(int,QProcess::ExitStatus)>(&QProcess::finished),this,&ProcessControler::finished);
 }
 
 void ProcessControler::readyReadStandardError()
@@ -83,58 +91,80 @@ void ProcessControler::readyReadStandardOutput()
     QProcess* process = qobject_cast<QProcess*>(sender());
     if(process!=NULL)
     {
-        QString output=process->readAllStandardOutput();
+        const QString output=process->readAllStandardOutput();
         Gateway &gateway=gatewayList[process];
-        if(!gateway.sendtext)
+        const int indexGateway=processList.indexOf(process);
+        const QStringList outputList=output.split("\n",QString::SkipEmptyParts);
+        int indexOutput=0;
+        while(indexOutput<outputList.size())
         {
-            if(output.startsWith("SENT "))
-                gateway.sendtext=true;
-        }
-        else
-        {
-            if(output.startsWith("SENT "))
+            const QString output=outputList.at(indexOutput);
+            if(output!="\n")
             {
-                gateway.lastStatusList.push_back(false);
-                if((unsigned int)gateway.lastStatusList.size()>=continous_up_to_consider_up)
+//                std::cout << indexGateway << ": " << output.toStdString() << std::endl;
+                if(!gateway.sendtext)
                 {
-                    int index=gateway.lastStatusList.size()-1;
-                    while((unsigned int)index>gateway.lastStatusList.size()-1-continous_up_to_consider_up)
+                    if(output.startsWith("SENT "))
+                        gateway.sendtext=true;
+                    //std::cout << indexGateway << ": First SENT" << std::endl;
+                }
+                else
+                {
+                    if(output.startsWith("SENT "))
                     {
-                        if(gateway.lastStatusList.at(index)!=true)
-                            break;
-                        index--;
-                    }
-                    if((unsigned int)index<=gateway.lastStatusList.size()-1-continous_up_to_consider_up)
-                        if(!gateway.lastStatus)
+                        //std::cout << indexGateway << ": Another SENT" << std::endl;
+                        gateway.lastStatusList.push_back(false);
+                        if((unsigned int)gateway.lastStatusList.size()>=continous_up_to_consider_up)
                         {
-                            std::cout << "Now " << gateway.ip.toStdString() << " is up" << std::endl;
-                            gateway.lastStatus=true;
-                            callTheScript();
+                            int index=gateway.lastStatusList.size()-1;
+                            while((unsigned int)index>gateway.lastStatusList.size()-1-continous_up_to_consider_up)
+                            {
+                                if(gateway.lastStatusList.at(index)!=true)
+                                {
+                                    //std::cout << "gateway.lastStatusList " << std::to_string(gateway.lastStatusList.size()) << " is down (" << index << ")" << std::endl;
+                                    break;
+                                }
+                                index--;
+                            }
+                            if((unsigned int)index>gateway.lastStatusList.size()-1-continous_up_to_consider_up)
+                                if(gateway.lastStatus)
+                                {
+                                    std::cout << "Now " << gateway.ip.toStdString() << " is down (" << indexGateway << ")" << std::endl;
+                                    gateway.lastStatus=false;
+                                    callTheScript();
+                                }
+                            while((unsigned int)gateway.lastStatusList.size()>continous_up_to_consider_up && (unsigned int)gateway.lastStatusList.size()>continous_down_to_consider_down)
+                                gateway.lastStatusList.removeFirst();
                         }
-                    while((unsigned int)gateway.lastStatusList.size()>continous_up_to_consider_up && (unsigned int)gateway.lastStatusList.size()>continous_down_to_consider_down)
-                        gateway.lastStatusList.removeFirst();
-                }
-            }
-            else if(output.startsWith("RCVD "))
-            {
-                gateway.lastStatusList.push_back(true);
-                int index=gateway.lastStatusList.size()-1;
-                while((unsigned int)index>gateway.lastStatusList.size()-1-continous_down_to_consider_down)
-                {
-                    if(gateway.lastStatusList.at(index)!=false)
-                        break;
-                    index--;
-                }
-                if((unsigned int)index<=gateway.lastStatusList.size()-1-continous_down_to_consider_down)
-                    if(gateway.lastStatus)
-                    {
-                        std::cout << "Now " << gateway.ip.toStdString() << " is down" << std::endl;
-                        gateway.lastStatus=false;
-                        callTheScript();
                     }
-                while((unsigned int)gateway.lastStatusList.size()>continous_down_to_consider_down && (unsigned int)gateway.lastStatusList.size()>continous_down_to_consider_down)
-                    gateway.lastStatusList.removeFirst();
+                    else if(output.startsWith("RCVD "))
+                    {
+                        //std::cout << indexGateway << ": First RCVD" << std::endl;
+                        gateway.sendtext=false;
+                        gateway.lastStatusList.push_back(true);
+                        int index=gateway.lastStatusList.size()-1;
+                        while((unsigned int)index>gateway.lastStatusList.size()-1-continous_down_to_consider_down)
+                        {
+                            if(gateway.lastStatusList.at(index)!=false)
+                            {
+                                //std::cout << "gateway.lastStatusList " << std::to_string(gateway.lastStatusList.size()) << " is up (" << index << ")" << std::endl;
+                                break;
+                            }
+                            index--;
+                        }
+                        if((unsigned int)index>gateway.lastStatusList.size()-1-continous_down_to_consider_down)
+                            if(!gateway.lastStatus)
+                            {
+                                std::cout << "Now " << gateway.ip.toStdString() << " is up (" << indexGateway << ")" << std::endl;
+                                gateway.lastStatus=true;
+                                callTheScript();
+                            }
+                        while((unsigned int)gateway.lastStatusList.size()>continous_down_to_consider_down && (unsigned int)gateway.lastStatusList.size()>continous_down_to_consider_down)
+                            gateway.lastStatusList.removeFirst();
+                    }
+                }
             }
+            indexOutput++;
         }
     }
     else
@@ -157,10 +187,16 @@ void ProcessControler::callTheScript()
         const Gateway &gateway=gatewayList.value(processList.at(index));
         if(gateway.lastStatus)
         {
-            if(scriptProcess.state()==QProcess::NotRunning)
-                scriptProcess.start(script_on_gateway_change,QStringList() << gateway.ip);
-            else
-                callScriptAgain=true;
+            if(lastEnabledGatewayIndex!=(unsigned int)index)
+            {
+                if(scriptProcess.state()==QProcess::NotRunning)
+                {
+                    lastEnabledGatewayIndex=index;
+                    scriptProcess.start(script_on_gateway_change,QStringList() << gateway.ip);
+                }
+                else
+                    callScriptAgain=true;
+            }
             return;
         }
         index++;
@@ -169,15 +205,21 @@ void ProcessControler::callTheScript()
     const Gateway &gateway=gatewayList.value(processList.first());
     if(gateway.lastStatus)
     {
-        if(scriptProcess.state()==QProcess::NotRunning)
-            scriptProcess.start(script_on_gateway_change,QStringList() << gateway.ip);
-        else
-            callScriptAgain=true;
+        if(lastEnabledGatewayIndex!=0)
+        {
+            if(scriptProcess.state()==QProcess::NotRunning)
+            {
+                lastEnabledGatewayIndex=0;
+                scriptProcess.start(script_on_gateway_change,QStringList() << gateway.ip);
+            }
+            else
+                callScriptAgain=true;
+        }
         return;
     }
 }
 
-void ProcessControler::finished()
+void ProcessControler::finished(int, QProcess::ExitStatus)
 {
     if(callScriptAgain)
     {

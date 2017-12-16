@@ -17,7 +17,7 @@ private slots:
     void readyReadStandardError();
     void readyReadStandardOutput();
     void callTheScript();
-    void finished();
+    void finished(int, QProcess::ExitStatus);
 private:
     QSettings settings;
     unsigned int continous_up_to_consider_up;
@@ -38,6 +38,7 @@ private:
     QHash<QProcess *,Gateway> gatewayList;
     QProcess scriptProcess;
     bool callScriptAgain;
+    unsigned int lastEnabledGatewayIndex;
 };
 
 #endif // PROCESSCONTROLER_H
